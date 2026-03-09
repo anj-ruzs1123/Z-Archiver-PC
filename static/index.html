@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local File Manager</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        theme: {
+                            bg: 'var(--bg-main)',
+                            surface: 'var(--bg-surface)',
+                            hover: 'var(--bg-hover)',
+                            border: 'var(--border-color)',
+                            text: 'var(--text-main)',
+                            muted: 'var(--text-muted)',
+                            accent: 'var(--color-accent)',
+                            accentHover: 'var(--color-accent-hover)',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-main: #ffffff;
+            --bg-surface: #f9fafb;
+            --bg-hover: #f3f4f6;
+            --border-color: #e5e7eb;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --color-accent: #3b82f6;
+            --color-accent-hover: #2563eb;
+        }
+
+        [data-theme="dark-soft"] {
+            --bg-main: #1e293b;
+            --bg-surface: #334155;
+            --bg-hover: #475569;
+            --border-color: #475569;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        [data-theme="dark-hc"] {
+            --bg-main: #000000;
+            --bg-surface: #111111;
+            --bg-hover: #222222;
+            --border-color: #333333;
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+        }
+        
+        body { 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+        .jupyter-header { background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); }
+        .modal { background-color: rgba(0,0,0,0.6); }
+    </style>
+
+</head>
+<body class="bg-theme-bg text-theme-text min-h-screen flex flex-col">
+
+    <!-- Header / Jupyter-style -->
+    <header class="jupyter-header px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <i class="fas fa-book text-orange-500 text-2xl"></i>
+            <h1 class="text-xl font-semibold text-theme-text">File Manager</h1>
+        </div>
+        <div class="text-sm text-theme-muted">
+            <span id="item-count">0</span> items
+        </div>
+    </header>
+
+    <!-- Toolbar / Breadcrumbs -->
+    <div class="border-b border-theme-border px-6 py-3 bg-theme-surface flex items-center justify-between">
+        
+        <!-- Breadcrumbs -->
+        <div class="flex items-center space-x-2 text-sm text-theme-accent" id="breadcrumbs">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center space-x-3">
+            <button onclick="showModal('settingsModal')" class="px-3 py-1.5 bg-theme-bg border border-theme-border rounded text-sm hover:bg-theme-hover shadow-sm text-theme-text"><i class="fas fa-cog mr-1"></i> Settings</button>
+            <button onclick="showModal('createFolderModal')" class="px-3 py-1.5 bg-theme-bg border border-theme-border rounded text-sm hover:bg-theme-surface shadow-sm"><i class="fas fa-folder-plus mr-1"></i> New Folder</button>
+            <button onclick="showModal('createFileModal')" class="px-3 py-1.5 bg-theme-bg border border-theme-border rounded text-sm hover:bg-theme-surface shadow-sm"><i class="fas fa-file-medical mr-1"></i> New File</button>
+            <button id="zip-btn" onclick="showModal('zipModal')" class="px-3 py-1.5 bg-theme-bg border border-theme-border rounded text-sm hover:bg-theme-surface shadow-sm hidden"><i class="fas fa-file-zipper mr-1"></i> Zip Selected</button>
+        </div>
+
+    </div>
+
+    <!-- Main Content: File List -->
+    <main class="flex-grow p-6">
+        <div class="border border-theme-border rounded-md overflow-hidden">
+            <table class="w-full text-left text-sm" id="file-table">
+                <thead class="bg-theme-surface border-b border-theme-border">
+                    <tr>
+                        <th class="px-4 py-2 w-10 text-center"><input type="checkbox" id="select-all" class="rounded"></th>
+                        <th class="px-4 py-2 w-8"></th>
+                        <th class="px-4 py-2 font-medium text-theme-muted">Name</th>
+                        <th class="px-4 py-2 w-48 font-medium text-theme-muted">Last Modified</th>
+                        <th class="px-4 py-2 w-32 font-medium text-theme-muted">Size</th>
+                        <th class="px-4 py-2 w-48 font-medium text-theme-muted text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="file-list" class="divide-y divide-theme-border">
+                    <!-- Populated by JS -->
+                    <tr><td colspan="6" class="p-8 text-center text-theme-muted opacity-80">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modals -->
+
+    <!-- Create Folder Modal -->
+    <div id="createFolderModal" class="modal fixed inset-0 flex items-center justify-center hidden z-50">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-96 p-6">
+            <h3 class="text-lg font-medium mb-4">Create New Folder</h3>
+            <input type="text" id="newFolderName" class="w-full border border-theme-border rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-theme-accent" placeholder="Folder Name">
+            <div class="flex justify-end space-x-2">
+                <button onclick="hideModal('createFolderModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded">Cancel</button>
+                <button onclick="createItem(true)" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create File Modal -->
+    <div id="createFileModal" class="modal fixed inset-0 flex items-center justify-center hidden z-50">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-96 p-6">
+            <h3 class="text-lg font-medium mb-4">Create New File</h3>
+            <input type="text" id="newFileName" class="w-full border border-theme-border rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-theme-accent" placeholder="File Name (e.g. test.txt)">
+            <div class="flex justify-end space-x-2">
+                <button onclick="hideModal('createFileModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded">Cancel</button>
+                <button onclick="createItem(false)" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="renameModal" class="modal fixed inset-0 flex items-center justify-center hidden z-50">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-96 p-6">
+            <h3 class="text-lg font-medium mb-4">Rename Item</h3>
+            <input type="hidden" id="renamePath">
+            <input type="text" id="renameNewName" class="w-full border border-theme-border rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-theme-accent" placeholder="New Name">
+            <div class="flex justify-end space-x-2">
+                <button onclick="hideModal('renameModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded">Cancel</button>
+                <button onclick="renameItem()" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal fixed inset-0 flex items-center justify-center hidden z-[100]">
+        <div class="bg-theme-bg text-theme-text border border-theme-border rounded-lg shadow-xl w-96 p-6">
+            <h3 class="text-lg font-medium mb-4">Settings & Themes</h3>
+            
+            <label class="block text-sm font-medium mb-1">Theme</label>
+            <select id="themeSelect" onchange="changeTheme()" class="w-full bg-theme-surface border border-theme-border text-theme-text rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-theme-accent">
+                <option value="light">Light</option>
+                <option value="dark-soft">Dark (Soft)</option>
+                <option value="dark-hc">Dark (High Contrast)</option>
+            </select>
+            
+            <label class="block text-sm font-medium mb-1">Accent Color</label>
+            <div class="flex flex-wrap gap-2 mb-6 items-center">
+                <div class="flex space-x-2" id="accentPicker">
+                    <!-- populated by JS -->
+                </div>
+                <div class="h-8 border-l border-theme-border mx-1"></div>
+                <div class="relative w-8 h-8 rounded-full shadow-sm overflow-hidden flex items-center justify-center border-2 border-transparent focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-theme-accent" title="Custom Color">
+                    <input type="color" id="customAccentPicker" class="absolute -top-2 -left-2 w-16 h-16 cursor-pointer" onchange="changeAccent(this.value)">
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button onclick="hideModal('settingsModal')" class="px-4 py-2 hover:bg-theme-hover border border-theme-border text-theme-text rounded">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Target Path Modal (Move/Copy/Unzip) -->
+    <div id="targetPathModal" class="modal fixed inset-0 flex items-center justify-center hidden z-50">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-[500px] p-6 flex flex-col max-h-[90vh]">
+            <h3 class="text-lg font-medium mb-2" id="targetModalTitle">Action</h3>
+            <p class="text-sm text-theme-muted mb-4 break-all" id="targetModalDesc"></p>
+            <input type="hidden" id="targetAction">
+            <input type="hidden" id="targetSourcePath">
+            
+            <label class="block text-sm font-medium text-theme-text mb-1">Destination:</label>
+            <div class="flex space-x-2 mb-4">
+                <input type="text" id="targetDestination" class="flex-1 border border-theme-border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-theme-accent text-sm" placeholder="Destination Path" readonly>
+                <button onclick="openFolderBrowser()" class="px-3 py-2 bg-theme-hover border border-theme-border rounded hover:bg-theme-hover text-sm text-theme-text whitespace-nowrap"><i class="fas fa-folder-open mr-1"></i> Browse...</button>
+            </div>
+            
+            <div class="flex justify-end space-x-2 mt-auto">
+                <button onclick="hideModal('targetPathModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded text-sm">Cancel</button>
+                <button onclick="executeTargetAction()" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded text-sm" id="targetActionBtn">Execute</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Browser Modal -->
+    <div id="folderBrowserModal" class="modal fixed inset-0 flex items-center justify-center hidden z-[60]">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-[600px] flex flex-col h-[70vh] max-h-[600px]">
+            <div class="p-4 border-b border-theme-border flex justify-between items-center bg-theme-surface rounded-t-lg">
+                <h3 class="text-lg font-medium">Select Destination Folder</h3>
+                <button onclick="hideModal('folderBrowserModal')" class="text-theme-muted opacity-80 hover:text-theme-muted"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="px-4 py-2 text-sm text-theme-accent border-b border-theme-border flex items-center space-x-2 bg-theme-bg" id="browserBreadcrumbs">
+                <!-- Browser breadcrumbs -->
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-0">
+                <table class="w-full text-left text-sm">
+                    <tbody id="browserItemList" class="divide-y divide-theme-border">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="p-4 border-t border-theme-border bg-theme-surface flex justify-between items-center rounded-b-lg">
+                <div class="text-sm text-theme-muted truncate flex-1 pr-4">
+                    Selected: <span id="browserSelectedPath" class="font-mono text-xs font-semibold text-theme-text"></span>
+                </div>
+                <div class="flex flex-shrink-0 space-x-2">
+                    <button onclick="hideModal('folderBrowserModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded text-sm bg-theme-bg border border-theme-border">Cancel</button>
+                    <button onclick="confirmFolderSelection()" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded text-sm font-medium">Select Folder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="fixed hidden bg-theme-bg border border-theme-border shadow-lg rounded-md py-1 z-40 text-sm min-w-[150px]">
+        <button onclick="handleContextAction('rename')" class="w-full text-left px-4 py-2 hover:bg-theme-hover flex items-center"><i class="fas fa-edit w-5 text-theme-muted"></i> Rename</button>
+        <button onclick="handleContextAction('move')" class="w-full text-left px-4 py-2 hover:bg-theme-hover flex items-center"><i class="fas fa-share-square w-5 text-indigo-500"></i> Move</button>
+        <button onclick="handleContextAction('copy')" class="w-full text-left px-4 py-2 hover:bg-theme-hover flex items-center"><i class="fas fa-copy w-5 text-green-500"></i> Copy</button>
+        <div id="contextUnzipContainer"></div>
+        <div class="border-t border-theme-border my-1"></div>
+        <button onclick="handleContextAction('delete')" class="w-full text-left px-4 py-2 hover:bg-theme-hover text-red-600 flex items-center"><i class="fas fa-trash w-5"></i> Delete</button>
+    </div>
+
+    <!-- Zip Modal -->
+    <div id="zipModal" class="modal fixed inset-0 flex items-center justify-center hidden z-50">
+        <div class="bg-theme-bg rounded-lg shadow-xl w-96 p-6">
+            <h3 class="text-lg font-medium mb-4">Zip Selected Items</h3>
+            <input type="text" id="zipName" class="w-full border border-theme-border rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-theme-accent" placeholder="Archive Name (e.g. archive.zip)">
+            <div class="flex justify-end space-x-2">
+                <button onclick="hideModal('zipModal')" class="px-4 py-2 text-theme-muted hover:bg-theme-hover rounded">Cancel</button>
+                <button onclick="zipSelectedItems()" class="px-4 py-2 bg-theme-accent text-white hover:bg-theme-accentHover rounded">Zip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-theme-surface text-theme-text text-white px-4 py-3 rounded shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-50 flex items-center">
+        <i id="toast-icon" class="fas fa-info-circle mr-2"></i>
+        <span id="toast-message">Notification</span>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
