@@ -106,8 +106,3 @@ This app is designed as a local tool. It exposes filesystem operations over HTTP
 - If the UI does not load, ensure the server is running and that you can access `http://localhost:8000/`.
 - Verify dependencies are installed (`pip list`).
 
----
-
-## 📝 License
-
-No license specified. Use at your own risk.
